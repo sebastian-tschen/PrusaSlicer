@@ -3,6 +3,11 @@
 #include "GUI_ObjectManipulation.hpp"
 #include "I18N.hpp"
 
+// XXX: thses are tmp
+#include <iostream>
+#include <fstream>
+#include <boost/filesystem/path.hpp>
+
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -81,6 +86,8 @@ GUI_App::GUI_App()
 #endif // ENABLE_IMGUI
 {}
 
+static std::fstream window_diag;
+
 bool GUI_App::OnInit()
 {
     // Verify resources path
@@ -103,6 +110,11 @@ bool GUI_App::OnInit()
     // Mac : "~/Library/Application Support/Slic3r"
     if (data_dir().empty())
         set_data_dir(wxStandardPaths::Get().GetUserDataDir().ToUTF8().data());
+
+
+    // XXX: tmp
+    window_diag.open((boost::filesystem::path(data_dir()) / "window_diag.txt").string(), std::ios::out|std::ios::app);
+    window_diag << "\n\nSlic3r starting..." << std::endl;
 
     app_config = new AppConfig();
     preset_bundle = new PresetBundle();
@@ -406,16 +418,19 @@ void GUI_App::CallAfter(std::function<void()> cb)
 
 void GUI_App::window_pos_save(wxTopLevelWindow* window, const std::string &name)
 {
+    window_diag << "window_pos_save: " << window << ", name: " << name << std::endl;
     if (name.empty()) { return; }
     const auto config_key = (boost::format("window_%1%") % name).str();
 
     WindowMetrics metrics = WindowMetrics::from_window(window);
+    window_diag << "\tmetrics: " << metrics << std::endl;
     app_config->set(config_key, metrics.serialize());
     app_config->save();
 }
 
 void GUI_App::window_pos_restore(wxTopLevelWindow* window, const std::string &name)
 {
+    window_diag << "window_pos_restore: " << window << ", name: " << name << std::endl;
     if (name.empty()) { return; }
     const auto config_key = (boost::format("window_%1%") % name).str();
 
@@ -428,19 +443,39 @@ void GUI_App::window_pos_restore(wxTopLevelWindow* window, const std::string &na
     window->Maximize(metrics->get_maximized());
 }
 
+static std::string rect2string(const wxRect &rect)
+{
+    return (boost::format("[%1%, %2%, %3%, %4%]") % rect.x % rect.y % rect.width % rect.height).str();
+}
+
 void GUI_App::window_pos_sanitize(wxTopLevelWindow* window)
 {
+    window_diag << "window_pos_sanitize: " << window << std::endl;
+
+    // XXX
+    window_diag << "number of displays: " << wxDisplay::GetCount() << std::endl;
+    for (unsigned i = 0; i < wxDisplay::GetCount(); i++)
+    {
+        wxDisplay display(i);
+        window_diag << "\tdisplay " << i << " client area: " << rect2string(display.GetClientArea()) << std::endl;
+    }
+
     const auto display_idx = wxDisplay::GetFromWindow(window);
+    window_diag << "\tdisplay_idx: " << display_idx << std::endl;
     if (display_idx == wxNOT_FOUND) { return; }
 
     const auto display = wxDisplay(display_idx).GetClientArea();
 
     auto metrics = WindowMetrics::from_window(window);
+    window_diag << "\tmetrics: " << metrics << std::endl;
 
     metrics.sanitize_for_display(display);
+    window_diag << "\tmetrics sanitized: " << metrics << std::endl;
     if (window->GetScreenRect() != metrics.get_rect()) {
         window->SetSize(metrics.get_rect());
     }
+
+    window_diag << std::endl;
 }
 
 // select language from the list of installed languages

@@ -122,7 +122,7 @@ void WindowMetrics::sanitize_for_display(const wxRect &screen_rect)
     rect = rect.Intersect(screen_rect);
 }
 
-std::string WindowMetrics::serialize()
+std::string WindowMetrics::serialize() const
 {
     return (boost::format("%1%; %2%; %3%; %4%; %5%")
         % rect.GetX()
@@ -133,6 +133,10 @@ std::string WindowMetrics::serialize()
     ).str();
 }
 
+std::ostream& operator<<(std::ostream &os, const WindowMetrics& metrics)
+{
+    return os << '(' << metrics.serialize() << ')';
+}
 
 
 }
