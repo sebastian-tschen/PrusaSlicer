@@ -86,6 +86,16 @@ protected:
     virtual coord_t _line_spacing_for_density(float density) const;
 };
 
+class FillUnidirectional : public FillRectilinear2
+{
+public:
+    virtual Fill* clone() const { return new FillUnidirectional(*this); };
+    virtual ~FillUnidirectional() {}
+
+protected:
+    virtual float _layer_angle(size_t idx) const;
+};
+
 }; // namespace Slic3r
 
 #endif // slic3r_FillRectilinear2_hpp_

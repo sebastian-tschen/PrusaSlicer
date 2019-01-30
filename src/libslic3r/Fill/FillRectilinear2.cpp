@@ -1551,5 +1551,10 @@ std::vector<SegmentedIntersectionLine> FillScatteredRectilinear::_vert_lines_for
     return segs;
 }
 
+float FillUnidirectional::_layer_angle(size_t idx) const
+{
+    (void) idx;
+    return 0;
+}
 
 } // namespace Slic3r
