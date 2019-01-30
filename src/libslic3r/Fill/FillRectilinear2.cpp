@@ -6,6 +6,9 @@
 #include <limits>
 
 #include <boost/static_assert.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 #include "../ClipperUtils.hpp"
 #include "../ExPolygon.hpp"
@@ -1484,5 +1487,69 @@ Polylines FillCubic::fill_surface(const Surface *surface, const FillParams &para
     } 
     return polylines_out; 
 }
+
+/* Returns a float uniformly distributed in the range [0..1.0) using the given integer as the seed
+*
+* N.B. calling this is super slow as it must rebuild the initial state for a Mersenne Twister with each call, so
+* don't call this in a loop if you can avoid it.
+*/
+static float randomFloatFromSeed(uint32_t x)
+{
+    boost::random::mt19937 rng(x);
+    boost::random::uniform_real_distribution<> dist;
+
+    return (float) dist(rng);
+}
+
+float FillScatteredRectilinear::_layer_angle(size_t idx) const
+{
+    // Angle chosen at random using the layer index as a key
+    return randomFloatFromSeed((uint32_t) idx) * (float) M_PI;
+}
+
+coord_t FillScatteredRectilinear::_line_spacing_for_density(float density) const
+{
+    /* The density argument is ignored, we first generate lines at 100% density, then prune some generated lines
+     * later to achieve the target density
+     */
+    (void) density;
+
+    return coord_t(scale_(this->spacing) / 1.0);
+}
+
+Polylines FillScatteredRectilinear::fill_surface(const Surface *surface, const FillParams &params)
+{
+    Polylines polylines_out;
+
+    // Offset the pattern randomly using the current layer index as the generator
+    float offset = randomFloatFromSeed((uint32_t) layer_id) * 0.5f * (float) this->spacing;
+
+    if (!fill_surface_by_lines(surface, params, 0.f, offset, polylines_out)) {
+        printf("FillScatteredRectilinear::fill_surface() failed to fill a region.\n");
+    }
+    return polylines_out;
+}
+
+std::vector<SegmentedIntersectionLine> FillScatteredRectilinear::_vert_lines_for_polygon(const ExPolygonWithOffset &poly_with_offset, const BoundingBox &bounding_box, const FillParams &params, coord_t line_spacing) const
+{
+    std::vector<SegmentedIntersectionLine> segs = FillRectilinear2::_vert_lines_for_polygon(poly_with_offset, bounding_box, params, line_spacing);
+
+    if (!params.full_infill()) {
+        boost::random::mt19937 rng((uint32_t) layer_id);
+        boost::random::uniform_real_distribution<> dist;
+
+        // Remove generated lines with a probability that'll achieve the required density on average
+        for (auto iter = segs.begin(); iter != segs.end(); ) {
+            if (dist(rng) >= params.density) {
+                iter = segs.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
+    }
+
+    return segs;
+}
+
 
 } // namespace Slic3r

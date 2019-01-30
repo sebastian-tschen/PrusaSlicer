@@ -73,6 +73,18 @@ protected:
     virtual float _layer_angle(size_t idx) const { return 0.f; }
 };
 
+class FillScatteredRectilinear : public FillRectilinear2
+{
+public:
+    virtual Fill* clone() const { return new FillScatteredRectilinear(*this); };
+    virtual ~FillScatteredRectilinear() {}
+    virtual Polylines fill_surface(const Surface *surface, const FillParams &params);
+
+protected:
+    virtual float _layer_angle(size_t idx) const;
+    virtual std::vector<SegmentedIntersectionLine> _vert_lines_for_polygon(const ExPolygonWithOffset &poly_with_offset, const BoundingBox &bounding_box, const FillParams &params, coord_t line_spacing) const;
+    virtual coord_t _line_spacing_for_density(float density) const;
+};
 
 }; // namespace Slic3r
 
