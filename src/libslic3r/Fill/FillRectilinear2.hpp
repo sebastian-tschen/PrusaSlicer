@@ -8,6 +8,8 @@
 namespace Slic3r {
 
 class Surface;
+class SegmentedIntersectionLine;
+struct ExPolygonWithOffset;
 
 class FillRectilinear2 : public Fill
 {
@@ -17,6 +19,9 @@ public:
     virtual Polylines fill_surface(const Surface *surface, const FillParams &params);
 
 protected:
+    virtual std::vector<SegmentedIntersectionLine> _vert_lines_for_polygon(const ExPolygonWithOffset &poly_with_offset, const BoundingBox &bounding_box, const FillParams &params, coord_t line_spacing) const;
+    virtual coord_t _line_spacing_for_density(float density) const;
+
 	bool fill_surface_by_lines(const Surface *surface, const FillParams &params, float angleBase, float pattern_shift, Polylines &polylines_out);
 };
 

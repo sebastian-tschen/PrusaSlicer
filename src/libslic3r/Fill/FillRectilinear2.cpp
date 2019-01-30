@@ -758,55 +758,9 @@ enum DirectionMask
     DIR_BACKWARD = 2
 };
 
-bool FillRectilinear2::fill_surface_by_lines(const Surface *surface, const FillParams &params, float angleBase, float pattern_shift, Polylines &polylines_out)
+// Intersect a set of equally spaced vertical lines with expolygon.
+std::vector<SegmentedIntersectionLine> FillRectilinear2::_vert_lines_for_polygon(const ExPolygonWithOffset &poly_with_offset, const BoundingBox &bounding_box, const FillParams &params, coord_t line_spacing) const
 {
-    // At the end, only the new polylines will be rotated back.
-    size_t n_polylines_out_initial = polylines_out.size();
-
-    // Shrink the input polygon a bit first to not push the infill lines out of the perimeters.
-//    const float INFILL_OVERLAP_OVER_SPACING = 0.3f;
-    const float INFILL_OVERLAP_OVER_SPACING = 0.45f;
-    assert(INFILL_OVERLAP_OVER_SPACING > 0 && INFILL_OVERLAP_OVER_SPACING < 0.5f);
-
-    // Rotate polygons so that we can work with vertical lines here
-    std::pair<float, Point> rotate_vector = this->_infill_direction(surface);
-    rotate_vector.first += angleBase;
-
-    assert(params.density > 0.0001f && params.density <= 1.f);
-    coord_t line_spacing = coord_t(scale_(this->spacing) / params.density);
-
-    // On the polygons of poly_with_offset, the infill lines will be connected.
-    ExPolygonWithOffset poly_with_offset(
-        surface->expolygon, 
-        - rotate_vector.first, 
-        scale_(this->overlap - (0.5 - INFILL_OVERLAP_OVER_SPACING) * this->spacing),
-        scale_(this->overlap - 0.5 * this->spacing));
-    if (poly_with_offset.n_contours_inner == 0) {
-        // Not a single infill line fits.
-        //FIXME maybe one shall trigger the gap fill here?
-        return true;
-    }
-
-    BoundingBox bounding_box = poly_with_offset.bounding_box_src();
-
-    // define flow spacing according to requested density
-    if (params.full_infill() && !params.dont_adjust) {
-        line_spacing = this->_adjust_solid_spacing(bounding_box.size()(0), line_spacing);
-        this->spacing = unscale<double>(line_spacing);
-    } else {
-        // extend bounding box so that our pattern will be aligned with other layers
-        // Transform the reference point to the rotated coordinate system.
-        Point refpt = rotate_vector.second.rotated(- rotate_vector.first);
-        // _align_to_grid will not work correctly with positive pattern_shift.
-        coord_t pattern_shift_scaled = coord_t(scale_(pattern_shift)) % line_spacing;
-        refpt(0) -= (pattern_shift_scaled >= 0) ? pattern_shift_scaled : (line_spacing + pattern_shift_scaled);
-        bounding_box.merge(_align_to_grid(
-            bounding_box.min, 
-            Point(line_spacing, line_spacing), 
-            refpt));
-    }
-
-    // Intersect a set of euqally spaced vertical lines wiht expolygon.
     // n_vlines = ceil(bbox_width / line_spacing)
     size_t  n_vlines = (bounding_box.max(0) - bounding_box.min(0) + line_spacing - 1) / line_spacing;
 	coord_t x0 = bounding_box.min(0);
@@ -900,6 +854,65 @@ bool FillRectilinear2::fill_surface_by_lines(const Surface *surface, const FillP
             }
         }
     }
+
+    return segs;
+}
+
+coord_t FillRectilinear2::_line_spacing_for_density(float density) const
+{
+    return coord_t(scale_(this->spacing) / density);
+}
+
+bool FillRectilinear2::fill_surface_by_lines(const Surface *surface, const FillParams &params, float angleBase, float pattern_shift, Polylines &polylines_out)
+{
+    // At the end, only the new polylines will be rotated back.
+    size_t n_polylines_out_initial = polylines_out.size();
+
+    // Shrink the input polygon a bit first to not push the infill lines out of the perimeters.
+//    const float INFILL_OVERLAP_OVER_SPACING = 0.3f;
+    const float INFILL_OVERLAP_OVER_SPACING = 0.45f;
+    assert(INFILL_OVERLAP_OVER_SPACING > 0 && INFILL_OVERLAP_OVER_SPACING < 0.5f);
+
+    // Rotate polygons so that we can work with vertical lines here
+    std::pair<float, Point> rotate_vector = this->_infill_direction(surface);
+    rotate_vector.first += angleBase;
+
+    assert(params.density > 0.0001f && params.density <= 1.f);
+    coord_t line_spacing = _line_spacing_for_density(params.density);
+
+    // On the polygons of poly_with_offset, the infill lines will be connected.
+    ExPolygonWithOffset poly_with_offset(
+        surface->expolygon, 
+        - rotate_vector.first, 
+        scale_(this->overlap - (0.5 - INFILL_OVERLAP_OVER_SPACING) * this->spacing),
+        scale_(this->overlap - 0.5 * this->spacing));
+    if (poly_with_offset.n_contours_inner == 0) {
+        // Not a single infill line fits.
+        //FIXME maybe one shall trigger the gap fill here?
+        return true;
+    }
+
+    BoundingBox bounding_box = poly_with_offset.bounding_box_src();
+
+    // define flow spacing according to requested density
+    if (params.full_infill() && !params.dont_adjust) {
+        line_spacing = this->_adjust_solid_spacing(bounding_box.size()(0), line_spacing);
+        this->spacing = unscale<double>(line_spacing);
+    } else {
+        // extend bounding box so that our pattern will be aligned with other layers
+        // Transform the reference point to the rotated coordinate system.
+        Point refpt = rotate_vector.second.rotated(- rotate_vector.first);
+        // _align_to_grid will not work correctly with positive pattern_shift.
+        coord_t pattern_shift_scaled = coord_t(scale_(pattern_shift)) % line_spacing;
+        refpt(0) -= (pattern_shift_scaled >= 0) ? pattern_shift_scaled : (line_spacing + pattern_shift_scaled);
+        bounding_box.merge(_align_to_grid(
+            bounding_box.min, 
+            Point(line_spacing, line_spacing), 
+            refpt));
+    }
+
+    // Intersect a set of equally spaced vertical lines with expolygon.
+    std::vector<SegmentedIntersectionLine> segs = _vert_lines_for_polygon(poly_with_offset, bounding_box, params, line_spacing);
 
     // Sort the intersections along their segments, specify the intersection types.
     for (size_t i_seg = 0; i_seg < segs.size(); ++ i_seg) {
