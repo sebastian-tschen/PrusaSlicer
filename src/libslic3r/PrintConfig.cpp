@@ -230,6 +230,12 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("allow_empty_layers", coBool);
+    def->label = L("Allow empty layers");
+    def->tooltip = L("Allow GCode to be generated even if it will be unprintable due to some layers being empty");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("colorprint_heights", coFloats);
     def->label = L("Colorprint height");
     def->tooltip = L("Heights at which a filament change is to occur.");

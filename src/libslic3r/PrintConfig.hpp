@@ -375,6 +375,7 @@ class PrintObjectConfig : public StaticPrintConfig
 {
     STATIC_PRINT_CONFIG_CACHE(PrintObjectConfig)
 public:
+    ConfigOptionBool                allow_empty_layers;
     ConfigOptionBool                clip_multipart_objects;
     ConfigOptionBool                dont_support_bridges;
     ConfigOptionFloat               elefant_foot_compensation;
@@ -420,6 +421,7 @@ public:
 protected:
     void initialize(StaticCacheBase &cache, const char *base_ptr)
     {
+        OPT_PTR(allow_empty_layers);
         OPT_PTR(clip_multipart_objects);
         OPT_PTR(dont_support_bridges);
         OPT_PTR(elefant_foot_compensation);

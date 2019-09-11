@@ -1199,6 +1199,7 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(_(L("Other")));
         optgroup->append_single_option_line("clip_multipart_objects");
+        optgroup->append_single_option_line("allow_empty_layers");
 
     page = add_options_page(_(L("Output options")), "output+page_white");
         optgroup = page->new_optgroup(_(L("Sequential printing")));

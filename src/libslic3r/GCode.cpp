@@ -570,7 +570,7 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
             // where previous layer has object extrusions too (https://github.com/prusa3d/PrusaSlicer/issues/2752)
 
 
-            if (layer_to_print.print_z() > maximal_print_z + EPSILON)
+            if (!object.config().allow_empty_layers.value && layer_to_print.print_z() > maximal_print_z + EPSILON)
                 throw std::runtime_error(_(L("Empty layers detected, the output would not be printable.")) + "\n\n" +
                     _(L("Object name: ")) + object.model_object()->name + "\n" + _(L("Print z: ")) +
                     std::to_string(layers_to_print.back().print_z()) + "\n\n" + _(L("This is "
